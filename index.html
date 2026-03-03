@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gold Ion Collision Simulator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      text-align: center;
+      padding: 12px 20px;
+      background: linear-gradient(180deg, rgba(20,20,35,0.95), rgba(10,10,15,0.8));
+      border-bottom: 1px solid rgba(255,200,50,0.2);
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.3rem;
+      color: #ffc832;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    header p {
+      font-size: 0.75rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      z-index: 10;
+    }
+
+    button {
+      background: rgba(255, 200, 50, 0.15);
+      color: #ffc832;
+      border: 1px solid rgba(255, 200, 50, 0.4);
+      padding: 10px 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: rgba(255, 200, 50, 0.3);
+      border-color: #ffc832;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    #legend {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(10, 10, 20, 0.85);
+      border: 1px solid rgba(255, 200, 50, 0.15);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 0.7rem;
+      z-index: 10;
+      min-width: 160px;
+    }
+
+    #legend h3 {
+      color: #ffc832;
+      margin-bottom: 8px;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    #stats {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(10, 10, 20, 0.85);
+      border: 1px solid rgba(255, 200, 50, 0.15);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 0.7rem;
+      z-index: 10;
+      min-width: 180px;
+    }
+
+    #stats h3 {
+      color: #ffc832;
+      margin-bottom: 8px;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+      color: #aaa;
+    }
+
+    .stat-val {
+      color: #fff;
+      font-weight: bold;
+    }
+
+    #energy-slider-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #aaa;
+      font-size: 0.75rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 120px;
+      height: 4px;
+      background: rgba(255, 200, 50, 0.3);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #ffc832;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    #energy-val {
+      color: #ffc832;
+      min-width: 55px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Au + Au Collision Simulator</h1>
+    <p>Gold-197 relativistic heavy-ion collision &mdash; inspired by RHIC at Brookhaven</p>
+  </header>
+
+  <div id="canvas-container">
+    <canvas id="sim"></canvas>
+
+    <div id="stats">
+      <h3>Collision Data</h3>
+      <div class="stat-row"><span>Collisions</span><span class="stat-val" id="s-collisions">0</span></div>
+      <div class="stat-row"><span>Particles</span><span class="stat-val" id="s-particles">0</span></div>
+      <div class="stat-row"><span>Energy (GeV)</span><span class="stat-val" id="s-energy">0</span></div>
+      <div class="stat-row"><span>Temperature</span><span class="stat-val" id="s-temp">--</span></div>
+    </div>
+
+    <div id="legend">
+      <h3>Particles</h3>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff4466"></div> Pion (&pi;&plusmn;, &pi;0)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#44aaff"></div> Kaon (K&plusmn;, K0)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#44ff88"></div> Proton / Neutron</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffaa22"></div> Photon (&gamma;)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#aa66ff"></div> Muon (&mu;&plusmn;)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff66aa"></div> Electron (e&plusmn;)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#66ffff"></div> Neutrino (&nu;)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffff44"></div> J/&psi; meson</div>
+    </div>
+
+    <div id="controls">
+      <div id="energy-slider-container">
+        <span>Energy:</span>
+        <input type="range" id="energy" min="10" max="200" value="100">
+        <span id="energy-val">100 GeV</span>
+      </div>
+      <button id="collide-btn">Collide</button>
+      <button id="auto-btn">Auto</button>
+    </div>
+  </div>
+
+  <script>
+    // ── Canvas setup ──────────────────────────────────────────
+    const canvas = document.getElementById('sim');
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy;
+
+    function resize() {
+      const container = document.getElementById('canvas-container');
+      W = canvas.width = container.clientWidth * devicePixelRatio;
+      H = canvas.height = container.clientHeight * devicePixelRatio;
+      canvas.style.width = container.clientWidth + 'px';
+      canvas.style.height = container.clientHeight + 'px';
+      cx = W / 2;
+      cy = H / 2;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ── Particle definitions ──────────────────────────────────
+    const PARTICLE_TYPES = {
+      pion:     { color: '#ff4466', mass: 0.14,  charge: [-1,0,1], symbol: '\u03C0', lifetime: 2.6e-8, decays: true },
+      kaon:     { color: '#44aaff', mass: 0.494, charge: [-1,0,1], symbol: 'K',      lifetime: 1.2e-8, decays: true },
+      proton:   { color: '#44ff88', mass: 0.938, charge: [1],      symbol: 'p',      lifetime: Infinity, decays: false },
+      neutron:  { color: '#44ff88', mass: 0.940, charge: [0],      symbol: 'n',      lifetime: 880, decays: true },
+      photon:   { color: '#ffaa22', mass: 0,     charge: [0],      symbol: '\u03B3',  lifetime: Infinity, decays: false },
+      muon:     { color: '#aa66ff', mass: 0.106, charge: [-1,1],   symbol: '\u03BC',  lifetime: 2.2e-6, decays: true },
+      electron: { color: '#ff66aa', mass: 0.000511, charge: [-1,1], symbol: 'e',     lifetime: Infinity, decays: false },
+      neutrino: { color: '#66ffff', mass: 0,     charge: [0],      symbol: '\u03BD',  lifetime: Infinity, decays: false },
+      jpsi:     { color: '#ffff44', mass: 3.097, charge: [0],      symbol: 'J/\u03C8', lifetime: 7e-21, decays: true },
+    };
+
+    // Relative production weights (roughly inspired by real yields)
+    const PRODUCTION_WEIGHTS = {
+      pion: 50, kaon: 12, proton: 8, neutron: 6,
+      photon: 15, muon: 4, electron: 3, neutrino: 2, jpsi: 0.3,
+    };
+
+    // ── State ─────────────────────────────────────────────────
+    let particles = [];
+    let beamParticlesLeft = [];
+    let beamParticlesRight = [];
+    let collisionFlashes = [];
+    let trails = [];
+    let collisionCount = 0;
+    let autoMode = false;
+    let autoTimer = null;
+    let collisionInProgress = false;
+    let ringAngle = 0;
+    const RING_RADIUS_FACTOR = 0.32;
+    const BEAM_PIPE_WIDTH = 3;
+
+    // ── Helper functions ──────────────────────────────────────
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function weightedRandom(weights) {
+      const entries = Object.entries(weights);
+      const total = entries.reduce((s, [, w]) => s + w, 0);
+      let r = Math.random() * total;
+      for (const [key, weight] of entries) {
+        r -= weight;
+        if (r <= 0) return key;
+      }
+      return entries[entries.length - 1][0];
+    }
+
+    // ── Magnetic field curvature (charge-dependent) ───────────
+    function magneticCurve(charge) {
+      if (charge === 0) return 0;
+      return charge * rand(0.002, 0.008);
+    }
+
+    // ── Create a collision product particle ───────────────────
+    function createParticle(energy) {
+      const typeName = weightedRandom(PRODUCTION_WEIGHTS);
+      const ptype = PARTICLE_TYPES[typeName];
+      const charge = pick(ptype.charge);
+      const angle = rand(0, Math.PI * 2);
+      const speed = rand(1.5, 5) * (energy / 100) * devicePixelRatio;
+      const curvature = magneticCurve(charge);
+
+      // Heavier particles are slower
+      const massFactor = 1 / (1 + ptype.mass * 0.5);
+
+      return {
+        type: typeName,
+        x: cx,
+        y: cy,
+        vx: Math.cos(angle) * speed * massFactor,
+        vy: Math.sin(angle) * speed * massFactor,
+        charge,
+        curvature,
+        color: ptype.color,
+        symbol: ptype.symbol,
+        radius: Math.max(1.5, (3 - ptype.mass * 0.5)) * devicePixelRatio,
+        life: 1.0,
+        decay: ptype.decays ? rand(0.001, 0.006) / (energy / 50) : rand(0.0005, 0.002),
+        trail: [],
+        maxTrail: Math.floor(rand(30, 80)),
+        age: 0,
+      };
+    }
+
+    // ── Beam particles (gold ions approaching) ────────────────
+    function createBeamParticle(fromLeft) {
+      const spread = rand(-15, 15) * devicePixelRatio;
+      return {
+        x: fromLeft ? -20 : W + 20,
+        y: cy + spread,
+        vx: (fromLeft ? 1 : -1) * rand(8, 14) * devicePixelRatio,
+        radius: rand(2, 4) * devicePixelRatio,
+        color: '#ffc832',
+        glow: rand(0.5, 1),
+        trail: [],
+      };
+    }
+
+    // ── Collision flash ───────────────────────────────────────
+    function createFlash() {
+      return { x: cx, y: cy, radius: 5 * devicePixelRatio, maxRadius: rand(60, 120) * devicePixelRatio, alpha: 1 };
+    }
+
+    // ── Launch a collision ────────────────────────────────────
+    function launchCollision() {
+      if (collisionInProgress) return;
+      collisionInProgress = true;
+
+      const energy = parseInt(document.getElementById('energy').value);
+      const numBeam = randInt(4, 8);
+
+      // Create beam particles from both sides
+      for (let i = 0; i < numBeam; i++) {
+        beamParticlesLeft.push(createBeamParticle(true));
+        beamParticlesRight.push(createBeamParticle(false));
+      }
+
+      // Schedule the collision event
+      const arrivalTime = cx / (11 * devicePixelRatio) * 16;
+      setTimeout(() => {
+        // Flash
+        collisionFlashes.push(createFlash());
+        collisionFlashes.push(createFlash());
+
+        // Spawn particles
+        const numParticles = Math.floor(rand(20, 50) * (energy / 100));
+        for (let i = 0; i < numParticles; i++) {
+          particles.push(createParticle(energy));
+        }
+
+        collisionCount++;
+        document.getElementById('s-collisions').textContent = collisionCount;
+        document.getElementById('s-energy').textContent = energy;
+
+        // Temperature estimate (QGP forms above ~170 MeV)
+        const tempMeV = Math.floor(150 + energy * 2.5 + rand(-30, 30));
+        document.getElementById('s-temp').textContent = tempMeV + ' MeV';
+
+        beamParticlesLeft = [];
+        beamParticlesRight = [];
+        collisionInProgress = false;
+      }, arrivalTime);
+    }
+
+    // ── Draw the accelerator ring ─────────────────────────────
+    function drawRing() {
+      const r = Math.min(W, H) * RING_RADIUS_FACTOR;
+      ringAngle += 0.003;
+
+      // Outer ring glow
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 200, 50, 0.06)';
+      ctx.lineWidth = 20 * devicePixelRatio;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Ring segments
+      const segments = 60;
+      for (let i = 0; i < segments; i++) {
+        const a1 = (i / segments) * Math.PI * 2 + ringAngle;
+        const a2 = ((i + 0.7) / segments) * Math.PI * 2 + ringAngle;
+        const bright = (Math.sin(a1 * 3 + performance.now() * 0.002) + 1) * 0.5;
+        ctx.strokeStyle = `rgba(255, 200, 50, ${0.08 + bright * 0.12})`;
+        ctx.lineWidth = 3 * devicePixelRatio;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, a1, a2);
+        ctx.stroke();
+      }
+
+      // Dipole magnets (blue/red)
+      const magnetCount = 8;
+      for (let i = 0; i < magnetCount; i++) {
+        const a = (i / magnetCount) * Math.PI * 2 + ringAngle * 0.5;
+        const mx = cx + Math.cos(a) * r;
+        const my = cy + Math.sin(a) * r;
+        const gradient = ctx.createRadialGradient(mx, my, 0, mx, my, 12 * devicePixelRatio);
+        gradient.addColorStop(0, i % 2 === 0 ? 'rgba(50,100,255,0.4)' : 'rgba(255,50,50,0.4)');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(mx, my, 12 * devicePixelRatio, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Beam pipe (horizontal line through center)
+      ctx.strokeStyle = 'rgba(255, 200, 50, 0.08)';
+      ctx.lineWidth = BEAM_PIPE_WIDTH * devicePixelRatio;
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy);
+      ctx.lineTo(cx + r, cy);
+      ctx.stroke();
+
+      // Collision point marker
+      ctx.fillStyle = 'rgba(255, 200, 50, 0.15)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8 * devicePixelRatio, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 200, 50, 0.3)';
+      ctx.lineWidth = 1 * devicePixelRatio;
+      ctx.stroke();
+
+      // Detector layers (concentric arcs)
+      const detectorLayers = [0.12, 0.18, 0.25];
+      detectorLayers.forEach((factor, idx) => {
+        const dr = Math.min(W, H) * factor;
+        ctx.strokeStyle = `rgba(100, 150, 255, ${0.04 + idx * 0.02})`;
+        ctx.lineWidth = 1 * devicePixelRatio;
+        ctx.setLineDash([4 * devicePixelRatio, 8 * devicePixelRatio]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, dr, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      ctx.restore();
+    }
+
+    // ── Draw beam particles ───────────────────────────────────
+    function drawBeamParticles(beamArr) {
+      beamArr.forEach(bp => {
+        // Trail
+        bp.trail.push({ x: bp.x, y: bp.y });
+        if (bp.trail.length > 20) bp.trail.shift();
+
+        for (let i = 0; i < bp.trail.length - 1; i++) {
+          const alpha = i / bp.trail.length * 0.5;
+          ctx.strokeStyle = `rgba(255, 200, 50, ${alpha})`;
+          ctx.lineWidth = bp.radius * 0.6;
+          ctx.beginPath();
+          ctx.moveTo(bp.trail[i].x, bp.trail[i].y);
+          ctx.lineTo(bp.trail[i + 1].x, bp.trail[i + 1].y);
+          ctx.stroke();
+        }
+
+        // Glow
+        const gradient = ctx.createRadialGradient(bp.x, bp.y, 0, bp.x, bp.y, bp.radius * 3);
+        gradient.addColorStop(0, `rgba(255, 200, 50, ${bp.glow * 0.6})`);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(bp.x, bp.y, bp.radius * 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = '#ffc832';
+        ctx.beginPath();
+        ctx.arc(bp.x, bp.y, bp.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // ── Update & draw everything ──────────────────────────────
+    function update() {
+      // Clear with subtle fade for trail effect
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      drawRing();
+
+      // Update beam particles
+      beamParticlesLeft.forEach(bp => { bp.x += bp.vx; });
+      beamParticlesRight.forEach(bp => { bp.x += bp.vx; });
+      drawBeamParticles(beamParticlesLeft);
+      drawBeamParticles(beamParticlesRight);
+
+      // Collision flashes
+      for (let i = collisionFlashes.length - 1; i >= 0; i--) {
+        const f = collisionFlashes[i];
+        f.radius += (f.maxRadius - f.radius) * 0.15;
+        f.alpha *= 0.92;
+
+        const gradient = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.radius);
+        gradient.addColorStop(0, `rgba(255, 240, 200, ${f.alpha})`);
+        gradient.addColorStop(0.3, `rgba(255, 180, 50, ${f.alpha * 0.5})`);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (f.alpha < 0.01) collisionFlashes.splice(i, 1);
+      }
+
+      // Update and draw collision product particles
+      let activeCount = 0;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.age++;
+
+        // Apply magnetic curvature to charged particles
+        if (p.curvature !== 0) {
+          const perpX = -p.vy;
+          const perpY = p.vx;
+          p.vx += perpX * p.curvature;
+          p.vy += perpY * p.curvature;
+        }
+
+        // Slight deceleration
+        p.vx *= 0.998;
+        p.vy *= 0.998;
+
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+
+        // Store trail
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > p.maxTrail) p.trail.shift();
+
+        if (p.life <= 0 || p.x < -50 || p.x > W + 50 || p.y < -50 || p.y > H + 50) {
+          // Decay: some particles produce secondaries
+          if (p.life <= 0 && p.type === 'pion' && Math.random() < 0.4) {
+            // Pion decays to muon + neutrino
+            const angle = Math.atan2(p.vy, p.vx) + rand(-0.5, 0.5);
+            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy) * 0.7;
+            const muon = {
+              type: 'muon', x: p.x, y: p.y,
+              vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+              charge: p.charge, curvature: magneticCurve(p.charge),
+              color: PARTICLE_TYPES.muon.color, symbol: '\u03BC',
+              radius: 2 * devicePixelRatio, life: 0.6,
+              decay: rand(0.003, 0.008), trail: [], maxTrail: 40, age: 0,
+            };
+            const nu = {
+              type: 'neutrino', x: p.x, y: p.y,
+              vx: Math.cos(angle + Math.PI) * speed * 1.5,
+              vy: Math.sin(angle + Math.PI) * speed * 1.5,
+              charge: 0, curvature: 0,
+              color: PARTICLE_TYPES.neutrino.color, symbol: '\u03BD',
+              radius: 1.5 * devicePixelRatio, life: 0.4,
+              decay: rand(0.005, 0.01), trail: [], maxTrail: 25, age: 0,
+            };
+            particles.push(muon, nu);
+          }
+          if (p.life <= 0 && p.type === 'jpsi' && Math.random() < 0.8) {
+            // J/psi decays to electron-positron pair
+            const angle = rand(0, Math.PI * 2);
+            const speed = 4 * devicePixelRatio;
+            for (const sign of [-1, 1]) {
+              particles.push({
+                type: 'electron', x: p.x, y: p.y,
+                vx: Math.cos(angle + sign * 0.3) * speed,
+                vy: Math.sin(angle + sign * 0.3) * speed,
+                charge: sign, curvature: magneticCurve(sign) * 2,
+                color: PARTICLE_TYPES.electron.color, symbol: 'e',
+                radius: 1.5 * devicePixelRatio, life: 0.5,
+                decay: rand(0.004, 0.008), trail: [], maxTrail: 35, age: 0,
+              });
+            }
+          }
+          particles.splice(i, 1);
+          continue;
+        }
+
+        activeCount++;
+
+        // Draw trail
+        for (let t = 0; t < p.trail.length - 1; t++) {
+          const alpha = (t / p.trail.length) * p.life * 0.4;
+          ctx.strokeStyle = p.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+          // Convert hex to rgba for trail
+          const r = parseInt(p.color.slice(1, 3), 16);
+          const g = parseInt(p.color.slice(3, 5), 16);
+          const b = parseInt(p.color.slice(5, 7), 16);
+          ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+          ctx.lineWidth = p.radius * 0.5 * (t / p.trail.length);
+          ctx.beginPath();
+          ctx.moveTo(p.trail[t].x, p.trail[t].y);
+          ctx.lineTo(p.trail[t + 1].x, p.trail[t + 1].y);
+          ctx.stroke();
+        }
+
+        // Particle glow
+        const r = parseInt(p.color.slice(1, 3), 16);
+        const g = parseInt(p.color.slice(3, 5), 16);
+        const b = parseInt(p.color.slice(5, 7), 16);
+        const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 3);
+        glowGrad.addColorStop(0, `rgba(${r},${g},${b},${p.life * 0.4})`);
+        glowGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Particle core
+        ctx.fillStyle = `rgba(${r},${g},${b},${p.life})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Photons: draw as small starbursts
+        if (p.type === 'photon') {
+          ctx.strokeStyle = `rgba(${r},${g},${b},${p.life * 0.6})`;
+          ctx.lineWidth = 0.5 * devicePixelRatio;
+          for (let s = 0; s < 4; s++) {
+            const sa = (s / 4) * Math.PI * 2 + p.age * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(
+              p.x + Math.cos(sa) * p.radius * 3,
+              p.y + Math.sin(sa) * p.radius * 3
+            );
+            ctx.stroke();
+          }
+        }
+      }
+
+      document.getElementById('s-particles').textContent = activeCount;
+
+      requestAnimationFrame(update);
+    }
+
+    // ── Controls ──────────────────────────────────────────────
+    document.getElementById('collide-btn').addEventListener('click', launchCollision);
+
+    document.getElementById('auto-btn').addEventListener('click', () => {
+      autoMode = !autoMode;
+      document.getElementById('auto-btn').textContent = autoMode ? 'Stop' : 'Auto';
+      if (autoMode) {
+        autoTimer = setInterval(launchCollision, 2500);
+      } else {
+        clearInterval(autoTimer);
+      }
+    });
+
+    document.getElementById('energy').addEventListener('input', (e) => {
+      document.getElementById('energy-val').textContent = e.target.value + ' GeV';
+    });
+
+    // Keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        launchCollision();
+      }
+    });
+
+    // ── Start ─────────────────────────────────────────────────
+    update();
+
+    // Initial collision after brief delay
+    setTimeout(launchCollision, 800);
+  </script>
+</body>
+</html>
