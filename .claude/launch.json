@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "particle-accelerator",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8080", "--directory", "/Users/narendranag/Library/CloudStorage/Dropbox-Personal/Personal > Code/particle-accelerator"],
+      "port": 8080
+    }
+  ]
+}
